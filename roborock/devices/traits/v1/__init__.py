@@ -71,6 +71,7 @@ from roborock.web_api import UserWebApiClient
 from . import (
     child_lock,
     clean_summary,
+    cleaning,
     command,
     common,
     consumeable,
@@ -94,6 +95,7 @@ from . import (
 )
 from .child_lock import ChildLockTrait
 from .clean_summary import CleanSummaryTrait
+from .cleaning import CleaningTrait
 from .command import CommandTrait
 from .common import V1TraitMixin
 from .consumeable import ConsumableTrait
@@ -121,6 +123,7 @@ __all__ = [
     "PropertiesApi",
     "child_lock",
     "clean_summary",
+    "cleaning",
     "command",
     "common",
     "consumeable",
@@ -154,6 +157,7 @@ class PropertiesApi(Trait):
     # All v1 devices have these traits
     status: StatusTrait
     command: CommandTrait
+    cleaning: CleaningTrait
     dnd: DoNotDisturbTrait
     clean_summary: CleanSummaryTrait
     sound_volume: SoundVolumeTrait
@@ -212,6 +216,7 @@ class PropertiesApi(Trait):
         self.home = HomeTrait(self.status, self.maps, self.map_content, self.rooms, self._device_cache)
         self.network_info = NetworkInfoTrait(device_uid, self._device_cache)
         self.routines = RoutinesTrait(device_uid, web_api)
+        self.cleaning = CleaningTrait(self.device_features, self.status)
 
         # Dynamically create any traits that need to be populated
         for item in fields(self):

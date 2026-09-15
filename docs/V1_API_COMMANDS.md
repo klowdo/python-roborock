@@ -15,6 +15,7 @@ Commands can have multiple parameters that can change from one model to another.
 * [app_rc_start](#app_rc_start)
 * [app_rc_stop](#app_rc_stop)
 * [app_segment_clean](#app_segment_clean)
+* [app_segment_clean_subdivision](#app_segment_clean_subdivision)
 * [app_set_dryer_setting](#app_set_dryer_setting)
 * [app_start_collect_dust](#app_start_collect_dust)
 * [app_start_wash](#app_start_wash)
@@ -509,6 +510,60 @@ Returns ok or error
 **Supported devices:**
 
 * Roborock S8 Pro Ultra: ✅
+
+### app_segment_clean_subdivision
+
+Description: Starts a segment clean with per-room settings. Unlike `app_segment_clean`,
+this accepts a different fan speed, water flow, mop route, pass count and cleaning
+sequence for each room.
+
+Parameters: A single JSON **object**, not the positional array used by most V1 commands.
+
+* `seq_type` — `1` runs a full vacuum pass over the room and then a separate mop pass
+  ("clean then mop"); `0` vacuums and mops in the same pass.
+* `repeat` — number of passes. It is written both at the top level and in each `data` entry;
+  the app sends both and the firmware expects both.
+* `id` and `segment` — both carry the room id. The firmware rejects the request if either
+  is missing.
+* `need_wash` / `wash_mode` — mop washing during the run.
+* `mop_type` / `mop_power` — optional; only meaningful on devices reporting
+  `is_support_change_mop` / `is_support_vibrate_mop`.
+* `clean_order_mode` — the app forces `0` in FCC regions; only `0` has been observed.
+
+The top level keys `auto_dustCollection`, `auto_dry`, `is_new_clean`, `clean_order_mode`
+and `repeat` are all required; omitting any of them returns `-10007 invalid params`.
+
+Note that a mode code the client does not recognize must still be forwarded. Dropping an
+unknown `water_box_mode`, for example, causes the firmware to reject the whole request.
+
+```json
+{
+  "auto_dustCollection": 1,
+  "auto_dry": 1,
+  "is_new_clean": 1,
+  "clean_order_mode": 0,
+  "repeat": 1,
+  "data": [
+    {
+      "id": 4, "need_wash": 1, "wash_mode": 2, "segment": 4,
+      "fan_power": 102, "water_box_mode": 202, "mop_mode": 300,
+      "repeat": 1, "seq_type": 1
+    }
+  ]
+}
+```
+
+Command:
+    `roborock -d command --device_id deviceIdRedacted --cmd app_segment_clean_subdivision --params '{"auto_dustCollection":1,"auto_dry":1,"is_new_clean":1,"clean_order_mode":0,"repeat":1,"data":[{"id":4,"need_wash":1,"wash_mode":2,"segment":4,"fan_power":102,"water_box_mode":202,"mop_mode":300,"repeat":1,"seq_type":1}]}'`
+
+Returns ok or error
+
+A matching `app_zoned_clean_subdivision` exists for zone cleaning, but its `data` entry
+shape has not been verified and is not yet modelled by this library.
+
+**Supported devices:**
+
+* Roborock Saros 20: ✅
 
 ### set_segment_ground_material
 
@@ -1180,9 +1235,14 @@ Parameters: mop_mode 300
 
 ### set_clean_motor_mode
 
-Description:
+Description: Sets the fan speed, water flow and mop route.
 
-Parameters:
+This command does not accept `seq_type`. Clean then mop is a per-run setting with no
+getter or setter; the device silently ignores `seq_type` here. Pass it through
+[app_segment_clean_subdivision](#app_segment_clean_subdivision) instead.
+
+Parameters: `fan_power`, `water_box_mode`, `mop_mode` or `mop_template_id`, and
+optionally `mop_type` and `mop_power`.
 
 ### get_dust_collection_mode
 

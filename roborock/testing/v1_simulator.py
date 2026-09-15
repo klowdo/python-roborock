@@ -202,6 +202,7 @@ class V1VacuumSimulator(RoborockDeviceSimulator):
         self.clean_summary = clean_summary or replace(DEFAULT_CLEAN_SUMMARY)
         self.last_clean_record = last_clean_record or replace(DEFAULT_LAST_CLEAN_RECORD)
         self.custom_handlers = custom_handlers or {}
+        self.last_segment_clean_params: Any = None
 
         # Set up default handlers dictionary
         self.default_handlers: dict[str, Callable[[Any], Any]] = {
@@ -211,6 +212,7 @@ class V1VacuumSimulator(RoborockDeviceSimulator):
             "get_clean_summary": lambda params: _serialize_dataclass(self.clean_summary),
             "get_clean_record": lambda params: _serialize_dataclass(self.last_clean_record),
             "app_start": self._handle_app_start,
+            "app_segment_clean_subdivision": self._handle_segment_clean_subdivision,
             "app_stop": self._handle_app_stop,
             "app_charge": self._handle_app_charge,
             "set_custom_mode": self._handle_set_custom_mode,
@@ -270,6 +272,12 @@ class V1VacuumSimulator(RoborockDeviceSimulator):
 
     def _handle_app_start(self, params: Any) -> str:
         self.status.state = RoborockStateCode.cleaning
+        return "ok"
+
+    def _handle_segment_clean_subdivision(self, params: Any) -> str:
+        """Record the per-room cleaning request and start cleaning."""
+        self.last_segment_clean_params = params
+        self.status.state = RoborockStateCode.segment_cleaning
         return "ok"
 
     def _handle_app_stop(self, params: Any) -> str:

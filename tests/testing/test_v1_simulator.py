@@ -274,3 +274,38 @@ async def test_multiple_devices_network_info_override():
     await device2.v1_properties.network_info.refresh()
     assert device2.v1_properties.network_info.ip == "192.168.1.50"
     assert device2.v1_properties.network_info.ssid == "custom_wifi"
+
+
+async def test_segment_clean_subdivision_params_reach_device():
+    """Verify the cleaning trait's dict params survive serialization to the device.
+
+    The trait unit tests stop at a mocked channel, so this is the only coverage
+    proving an object payload is not degraded on the way to the device.
+    """
+    cloud = FakeRoborockCloud()
+    fake_device = V1VacuumSimulator(
+        duid="s7_segment_clean",
+        status=replace(DEFAULT_STATUS, fan_power=102, water_box_mode=202, mop_mode=300),
+    )
+    device = await _create_connected_device(cloud, fake_device)
+
+    await device.v1_properties.device_features.refresh()
+    await device.v1_properties.status.refresh()
+    await device.v1_properties.cleaning.clean_segments([4], repeat=2)
+
+    params = fake_device.last_segment_clean_params
+    assert params["auto_dustCollection"] == 1
+    assert params["repeat"] == 2
+    assert params["data"] == [
+        {
+            "id": 4,
+            "need_wash": 1,
+            "wash_mode": 2,
+            "segment": 4,
+            "fan_power": 102,
+            "water_box_mode": 202,
+            "mop_mode": 300,
+            "repeat": 2,
+            "seq_type": 0,
+        }
+    ]
