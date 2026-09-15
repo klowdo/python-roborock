@@ -288,6 +288,23 @@ def _resolve_mode_code(value: int | ModeEnumT | None, mode_cls: type[ModeEnumT])
     return mode_cls.from_code_optional(int(value))
 
 
+def _resolve_water_mode(value: int | WaterModes | None, features: DeviceFeatures) -> WaterModes | None:
+    """Resolve a water mode code, accounting for water slide specific codes.
+
+    Several WaterModes members share a display string with an earlier member and
+    therefore collapse into enum aliases, which makes their codes unreachable
+    through ``from_code_optional``. Water slide devices report exactly those
+    codes, so they are resolved through the explicit mapping first. See
+    :func:`get_water_mode_mapping`, which sidesteps the same problem.
+    """
+    if value is None or isinstance(value, WaterModes):
+        return value
+    code = int(value)
+    if features.is_water_slide_mode_supported and (mode := WATER_SLIDE_MODE_MAPPING.get(code)) is not None:
+        return mode
+    return WaterModes.from_code_optional(code)
+
+
 def _resolve_clean_mode(value: int | VacuumModes | None, features: DeviceFeatures) -> VacuumModes | None:
     """Resolve a vacuum mode code, accounting for feature-specific code aliases."""
     if value is None or isinstance(value, VacuumModes):
@@ -309,7 +326,7 @@ def get_current_cleaning_mode(
     if not features.is_support_water_mode:
         return None
     clean_mode_enum = _resolve_clean_mode(clean_mode, features)
-    water_mode_enum = _resolve_mode_code(water_mode, WaterModes)
+    water_mode_enum = _resolve_water_mode(water_mode, features)
     mop_mode_enum = _resolve_mode_code(mop_mode, CleanRoutes)
     if clean_mode_enum is None or water_mode_enum is None:
         return None

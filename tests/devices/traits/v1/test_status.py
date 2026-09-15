@@ -538,6 +538,68 @@ def test_water_slide_mode_mapping() -> None:
     assert status_trait.water_mode_name == "off"
 
 
+def _create_water_slide_status_trait() -> StatusTrait:
+    """Create a status trait for a real water-slide device (Saros 10R)."""
+    short_model = mock_data.A114_PRODUCT_DATA["model"].split(".")[-1]
+    features = DeviceFeatures.from_feature_flags(
+        new_feature_info=int(mock_data.SAROS_10R_DEVICE_DATA["featureSet"]),
+        new_feature_info_str=mock_data.SAROS_10R_DEVICE_DATA["newFeatureSet"],
+        feature_info=[],
+        product_nickname=SHORT_MODEL_TO_ENUM[short_model],
+    )
+    assert features.is_water_slide_mode_supported
+    return StatusTrait(cast(DeviceFeaturesTrait, features), region="eu")
+
+
+@pytest.mark.parametrize(
+    ("water_code", "expected_mode"),
+    [
+        (200, CleaningMode.VACUUM),
+        (221, CleaningMode.VAC_AND_MOP),
+        (225, CleaningMode.VAC_AND_MOP),
+        (235, CleaningMode.VAC_AND_MOP),
+        (245, CleaningMode.VAC_AND_MOP),
+        (248, CleaningMode.VAC_AND_MOP),
+        (250, CleaningMode.VAC_AND_MOP),
+    ],
+)
+def test_current_cleaning_mode_water_slide_codes(water_code: int, expected_mode: CleaningMode) -> None:
+    """Every water slide code resolves to a cleaning mode.
+
+    Codes 225, 235, 248 and 250 share a display string with an earlier WaterModes
+    member, so they collapse into enum aliases and are unreachable through
+    from_code_optional. Resolving them only through the enum made the whole
+    cleaning mode read as unknown in downstream consumers.
+    """
+    status_trait = _create_water_slide_status_trait()
+    status_trait.fan_power = VacuumModes.BALANCED.code
+    status_trait.water_box_mode = water_code
+    status_trait.mop_mode = CleanRoutes.STANDARD.code
+
+    assert status_trait.current_cleaning_mode == expected_mode
+    assert status_trait.current_cleaning_mode_name == expected_mode.value
+
+
+def test_current_cleaning_mode_water_slide_unknown_code() -> None:
+    """An unrecognized water code still yields no cleaning mode."""
+    status_trait = _create_water_slide_status_trait()
+    status_trait.fan_power = VacuumModes.BALANCED.code
+    status_trait.water_box_mode = 999
+    status_trait.mop_mode = CleanRoutes.STANDARD.code
+
+    assert status_trait.current_cleaning_mode is None
+
+
+def test_current_cleaning_mode_slide_codes_do_not_leak_to_other_devices() -> None:
+    """Slide-only codes stay unresolved on devices without water slide mode."""
+    status_trait = _create_cleaning_mode_status_trait(is_water_slide_mode_supported=False)
+    status_trait.fan_power = VacuumModes.BALANCED.code
+    status_trait.water_box_mode = 235
+    status_trait.mop_mode = CleanRoutes.STANDARD.code
+
+    assert status_trait.current_cleaning_mode is None
+
+
 def test_update_from_dps(status_trait: StatusTrait) -> None:
     """Test updating status from data protocol push message."""
     assert status_trait.battery is None
